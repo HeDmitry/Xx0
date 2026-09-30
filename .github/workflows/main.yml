@@ -3,16 +3,17 @@ name: Сборка Android APK (Buildozer)
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой "Run workflow"
   workflow_dispatch: # Запуск сборки вручную кнопкой "Run workflow"
 
 jobs:
   build:
-@@ -14,27 +14,61 @@ jobs:
+    name: Buildozer Android APK
+    runs-on: ubuntu-22.04
+
+    steps:
       - name: Клонирование репозитория
         uses: actions/checkout@v4
 
-      - name: Настройка кэша ccache и buildozer
       - name: Настройка Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -57,18 +58,11 @@ jobs:
         with:
           path: |
             ~/.buildozer
-            ~/.gradle
             .buildozer
           key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
             ${{ runner.os }}-buildozer-
 
-      - name: Сборка APK с помощью Buildozer Action
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          workdir: .
-          buildozer_version: master
       - name: Сборка APK с помощью Buildozer
         run: |
           buildozer -v android debug
@@ -77,6 +71,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TicTacToe-Hotseat-Android-APK
-          path: ${{ steps.buildozer.outputs.filename }}
-
           path: bin/*.apk
