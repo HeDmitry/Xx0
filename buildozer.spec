@@ -19,8 +19,9 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,otf,json
 version = 1.0.0
 
 # (list) Application requirements
-# comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.3.0
+# Python 3.14 is not compatible with Kivy 2.3.0 in buildozer/python-for-android CI builds,
+# so we pin a compatible CPython 3.11 for Android.
+requirements = python3==3.11.13,kivy==2.3.0
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/data/presplash.png
