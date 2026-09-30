@@ -1,0 +1,6 @@
+{
+  "name": "Neon Tic-Tac-Toe Python & APK Studio",
+  "description": "Автономное мобильное приложение «Крестики-нолики» (Hotseat) на Python / Kivy с современным неоновым дизайном, исходным кодом, buildozer.spec и GitHub Actions для сборки APK.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
