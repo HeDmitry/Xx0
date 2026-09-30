@@ -2,81 +2,81 @@ name: Сборка Android APK (Buildozer)
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой "Run workflow"
+  workflow_dispatch: # Запуск сборки вручную кнопкой "Run workflow"
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Проверка исходного кода
+@@ -14,27 +14,61 @@ jobs:
+      - name: Клонирование репозитория
         uses: actions/checkout@v4
 
-      - name: Настройка Python
+      - name: Настройка кэша ccache и buildozer
+      - name: Настройка Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Настройка Java (JDK 17)
+      - name: Настройка Java (OpenJDK 17)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Очистка дискового пространства
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-
-      - name: Установка системных зависимостей Ubuntu
+      - name: Установка системных утилит и библиотек компиляции
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             build-essential \
             git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libgstreamer1.0-dev \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            libffi-dev \
-            libssl-dev \
-            libncurses5-dev \
+            zip \
+            unzip \
             autoconf \
             libtool \
             pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
             cmake \
-            zip \
-            unzip \
+            libffi-dev \
+            libssl-dev \
             ccache
 
-      - name: Установка Python-пакетов
+      - name: Установка Cython, Buildozer и зависимостей Python
         run: |
-          python -m pip install --upgrade pip setuptools packaging wheel
-          pip install "cython<3.0.0" buildozer virtualenv
+          python -m pip install --upgrade pip setuptools wheel
+          pip install Cython==0.29.36
+          pip install "buildozer>=1.5.0"
+          pip install virtualenv
 
-      - name: Компиляция APK с помощью Buildozer
-        env:
-          ACCEPT_BUILD_TOOLS_CHECKSUMS: 1
+      - name: Кэширование загрузок Buildozer (Android SDK/NDK)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.gradle
+            .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+
+      - name: Сборка APK с помощью Buildozer Action
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: .
+          buildozer_version: master
+      - name: Сборка APK с помощью Buildozer
         run: |
-          # Автоматическое принятие всех лицензий SDK/NDK через pipe yes
-          yes | buildozer -v android debug
+          buildozer -v android debug
 
-      - name: Загрузка готового APK в Artifacts
+      - name: Выгрузка готового APK файла как артефакта
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: TicTacToe-Hotseat-Android-APK
+          path: ${{ steps.buildozer.outputs.filename }}
+
           path: bin/*.apk
