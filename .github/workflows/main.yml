@@ -1,1 +1,40 @@
+name: Сборка Android APK (Buildozer)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой "Run workflow"
+
+jobs:
+  build:
+    name: Buildozer Android APK
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Настройка кэша ccache и buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.gradle
+            .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+
+      - name: Сборка APK с помощью Buildozer Action
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: .
+          buildozer_version: master
+
+      - name: Выгрузка готового APK файла как артефакта
+        uses: actions/upload-artifact@v4
+        with:
+          name: TicTacToe-Hotseat-Android-APK
+          path: ${{ steps.buildozer.outputs.filename }}
 
