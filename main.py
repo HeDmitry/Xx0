@@ -1,8 +1,8 @@
 """
 Крестики-Нолики Hotseat (на двоих на одном устройстве)
 Разработано на Python + Kivy для Android и Desktop.
-Современный темный неоновый интерфейс, плавная анимация ходов,
-подсчет очков и экран победы/ничьей.
+Спокойный темный интерфейс с простой плоской палитрой,
+подсчетом очков и экраном результата.
 """
 
 from kivy.app import App
@@ -11,48 +11,45 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.graphics import Color, RoundedRectangle, Line, Ellipse
+from kivy.graphics import Color, RoundedRectangle, Line
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
 from kivy.utils import platform
 from kivy.animation import Animation
 from kivy.clock import Clock
 
-# Настройки окна только для тестирования на ПК.
-# На Android/iOS размер окна задаётся самой системой; жёсткий Window.size
-# ломает масштабирование из-за density и приводит к маленькому блоку
-# интерфейса в левом нижнем углу на реальном устройстве.
+# Размер окна задается только для тестирования на ПК.
+# На Android/iOS размер окна определяет сама система.
 if platform not in ('android', 'ios'):
     Window.size = (390, 720)
-Window.clearcolor = (0.05, 0.08, 0.14, 1.0)  # Глубокий темный фон (#0D1424)
 
-# Цветовая палитра игры
-COLOR_BG = (0.05, 0.08, 0.14, 1.0)
-COLOR_PANEL = (0.09, 0.13, 0.22, 1.0)
-COLOR_PANEL_BORDER = (0.16, 0.23, 0.36, 1.0)
-COLOR_CELL_BG = (0.11, 0.16, 0.28, 1.0)
-COLOR_CELL_HOVER = (0.15, 0.22, 0.38, 1.0)
-COLOR_X = (0.0, 0.94, 1.0, 1.0)          # Неоновый циановый (#00F0FF)
-COLOR_O = (1.0, 0.18, 0.52, 1.0)         # Неоновый розово-коралловый (#FF2E84)
-COLOR_TEXT_MUTED = (0.58, 0.65, 0.77, 1.0)
-COLOR_TEXT_LIGHT = (0.95, 0.97, 1.0, 1.0)
-COLOR_WIN_GLOW = (0.12, 0.75, 0.45, 1.0)  # Изумрудный для победных клеток
+# Простая плоская палитра с сохраненной прозрачностью панелей.
+COLOR_BG = (0.055, 0.065, 0.09, 1.0)
+COLOR_PANEL = (0.10, 0.115, 0.15, 0.88)
+COLOR_BORDER = (0.24, 0.27, 0.33, 0.72)
+COLOR_CELL_BG = (0.12, 0.135, 0.17, 0.86)
+COLOR_X = (0.36, 0.62, 0.92, 1.0)
+COLOR_O = (0.92, 0.44, 0.44, 1.0)
+COLOR_TEXT = (0.94, 0.95, 0.97, 1.0)
+COLOR_MUTED = (0.62, 0.66, 0.72, 1.0)
+COLOR_OVERLAY = (0.03, 0.04, 0.055, 0.70)
+
+Window.clearcolor = COLOR_BG
 
 
-class NeonCell(Button):
-    """Интерактивная клетка игрового поля с анимацией масштабирования и прорисовкой."""
-    
+class GameCell(Button):
+    """Интерактивная клетка игрового поля."""
+
     def __init__(self, index, on_cell_click, **kwargs):
         super().__init__(**kwargs)
         self.index = index
         self.on_cell_click = on_cell_click
         self.symbol = ""
         self.is_winning = False
-        self.background_color = (0, 0, 0, 0)  # Скрываем стандартный фон кнопки
+        self.background_color = (0, 0, 0, 0)
         self.font_size = sp(46)
         self.bold = True
         self.markup = True
-        self.scale = 0.0  # Для анимации появления
 
         self.bind(pos=self.update_canvas, size=self.update_canvas)
         self.update_canvas()
@@ -60,31 +57,39 @@ class NeonCell(Button):
     def update_canvas(self, *args):
         self.canvas.before.clear()
         with self.canvas.before:
-            # Фон клетки (при победе подсвечивается мягким зеленым сиянием)
             if self.is_winning:
-                Color(0.1, 0.45, 0.3, 0.65)
+                Color(0.42, 0.50, 0.62, 0.22)
             else:
                 Color(*COLOR_CELL_BG)
-            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(16)])
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(14)])
 
-            # Рамка клетки
             if self.is_winning:
-                Color(0.2, 0.9, 0.5, 0.9)
-                Line(rounded_rectangle=(self.pos[0], self.pos[1], self.size[0], self.size[1], dp(16)), width=dp(2.2))
+                border = COLOR_X if self.symbol == "X" else COLOR_O
+                Color(border[0], border[1], border[2], 0.85)
+                Line(
+                    rounded_rectangle=(
+                        self.pos[0], self.pos[1], self.size[0], self.size[1], dp(14)
+                    ),
+                    width=dp(1.8),
+                )
             else:
-                Color(*COLOR_PANEL_BORDER)
-                Line(rounded_rectangle=(self.pos[0], self.pos[1], self.size[0], self.size[1], dp(16)), width=dp(1.2))
+                Color(*COLOR_BORDER)
+                Line(
+                    rounded_rectangle=(
+                        self.pos[0], self.pos[1], self.size[0], self.size[1], dp(14)
+                    ),
+                    width=dp(1.0),
+                )
 
     def on_press(self):
         self.on_cell_click(self)
 
     def set_mark(self, symbol):
-        """Установка символа X или O с эффектом плавной анимации."""
+        """Установка символа X или O с короткой анимацией появления."""
         self.symbol = symbol
-        color_hex = "00F0FF" if symbol == "X" else "FF2E84"
+        color_hex = "5C9DF0" if symbol == "X" else "EB7070"
         self.text = f"[color={color_hex}]{symbol}[/color]"
-        
-        # Анимация мягкого увеличения и нормализации размера
+
         self.font_size = sp(18)
         anim = Animation(font_size=sp(50), duration=0.15, t='out_back') + \
                Animation(font_size=sp(46), duration=0.1, t='in_out_quad')
@@ -94,12 +99,12 @@ class NeonCell(Button):
         """Подсветка выигрышной комбинации."""
         self.is_winning = True
         self.update_canvas()
-        anim = Animation(font_size=sp(56), duration=0.2) + Animation(font_size=sp(48), duration=0.2)
+        anim = Animation(font_size=sp(50), duration=0.2) + Animation(font_size=sp(46), duration=0.2)
         anim.repeat = True
         anim.start(self)
 
     def reset(self):
-        """Сброс клетки."""
+        """Очистка ячейки."""
         Animation.stop_all(self)
         self.symbol = ""
         self.text = ""
@@ -109,19 +114,27 @@ class NeonCell(Button):
 
 
 class ResultOverlay(FloatLayout):
-    """Стильное всплывающее модальное окно победы или ничьей."""
+    """Полупрозрачное всплывающее окно результата."""
 
     def __init__(self, title_text, subtitle_text, symbol, on_rematch, on_close, **kwargs):
         super().__init__(**kwargs)
         self.on_rematch = on_rematch
         self.on_close = on_close
 
-        # Затемняющая подложка
+        # Полупрозрачная затемняющая подложка.
         with self.canvas.before:
-            Color(0.02, 0.04, 0.08, 0.78)
-            RoundedRectangle(pos=(0, 0), size=Window.size)
+            Color(*COLOR_OVERLAY)
+            RoundedRectangle(pos=self.pos, size=self.size)
 
-        # Контейнер карточки
+        def update_overlay_bg(*_):
+            self.canvas.before.clear()
+            with self.canvas.before:
+                Color(*COLOR_OVERLAY)
+                RoundedRectangle(pos=self.pos, size=self.size)
+
+        self.bind(pos=update_overlay_bg, size=update_overlay_bg)
+
+        # Контейнер карточки.
         card = BoxLayout(
             orientation='vertical',
             padding=[dp(24), dp(28), dp(24), dp(24)],
@@ -133,59 +146,53 @@ class ResultOverlay(FloatLayout):
 
         with card.canvas.before:
             Color(*COLOR_PANEL)
-            RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(24)])
-            Color(*COLOR_PANEL_BORDER)
-            Line(rounded_rectangle=(card.pos[0], card.pos[1], card.size[0], card.size[1], dp(24)), width=dp(1.5))
+            RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(22)])
+            Color(*COLOR_BORDER)
+            Line(
+                rounded_rectangle=(
+                    card.pos[0], card.pos[1], card.size[0], card.size[1], dp(22)
+                ),
+                width=dp(1.2),
+            )
 
         def update_card_bg(*_):
             card.canvas.before.clear()
             with card.canvas.before:
-                Color(0.09, 0.13, 0.22, 0.98)
-                RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(24)])
-                # Неоновая обводка в цвет победителя
-                if symbol == "X":
-                    Color(0.0, 0.94, 1.0, 0.5)
-                elif symbol == "O":
-                    Color(1.0, 0.18, 0.52, 0.5)
-                else:
-                    Color(0.5, 0.6, 0.7, 0.4)
-                Line(rounded_rectangle=(card.pos[0], card.pos[1], card.size[0], card.size[1], dp(24)), width=dp(2.0))
+                Color(*COLOR_PANEL)
+                RoundedRectangle(pos=card.pos, size=card.size, radius=[dp(22)])
+                Color(*COLOR_BORDER)
+                Line(
+                    rounded_rectangle=(
+                        card.pos[0], card.pos[1], card.size[0], card.size[1], dp(22)
+                    ),
+                    width=dp(1.2),
+                )
 
         card.bind(pos=update_card_bg, size=update_card_bg)
 
-        # Заголовок результата
+        # Заголовок результата.
         lbl_title = Label(
             text=title_text,
             font_size=sp(22),
             bold=True,
-            color=COLOR_TEXT_LIGHT,
+            color=COLOR_TEXT,
             size_hint_y=None,
             height=dp(34)
         )
         card.add_widget(lbl_title)
 
-        # Подзаголовок / Символ победителя
+        # Подзаголовок с цветом текущего победителя.
         lbl_subtitle = Label(
             text=subtitle_text,
             font_size=sp(16),
-            color=COLOR_X if symbol == "X" else (COLOR_O if symbol == "O" else COLOR_TEXT_MUTED),
+            color=COLOR_X if symbol == "X" else (COLOR_O if symbol == "O" else COLOR_MUTED),
             bold=True,
             size_hint_y=None,
             height=dp(30)
         )
         card.add_widget(lbl_subtitle)
 
-        # Подсказка
-        lbl_hint = Label(
-            text="Отличная игра! Сыграем ещё раунд?",
-            font_size=sp(13),
-            color=COLOR_TEXT_MUTED,
-            size_hint_y=None,
-            height=dp(26)
-        )
-        card.add_widget(lbl_hint)
-
-        # Кнопка 'Играть снова'
+        # Кнопка продолжения.
         btn_rematch = Button(
             text="СЛЕДУЮЩИЙ РАУНД",
             font_size=sp(15),
@@ -193,27 +200,18 @@ class ResultOverlay(FloatLayout):
             size_hint_y=None,
             height=dp(50),
             background_color=(0, 0, 0, 0),
-            color=(0.05, 0.08, 0.14, 1.0)
+            color=COLOR_BG,
         )
+        button_color = COLOR_X if symbol == "X" else (COLOR_O if symbol == "O" else COLOR_TEXT)
         with btn_rematch.canvas.before:
-            if symbol == "X":
-                Color(*COLOR_X)
-            elif symbol == "O":
-                Color(*COLOR_O)
-            else:
-                Color(0.3, 0.8, 1.0, 1.0)
-            RoundedRectangle(pos=btn_rematch.pos, size=btn_rematch.size, radius=[dp(14)])
+            Color(*button_color)
+            RoundedRectangle(pos=btn_rematch.pos, size=btn_rematch.size, radius=[dp(12)])
 
         def update_btn_rematch(*_):
             btn_rematch.canvas.before.clear()
             with btn_rematch.canvas.before:
-                if symbol == "X":
-                    Color(*COLOR_X)
-                elif symbol == "O":
-                    Color(*COLOR_O)
-                else:
-                    Color(0.2, 0.78, 0.95, 1.0)
-                RoundedRectangle(pos=btn_rematch.pos, size=btn_rematch.size, radius=[dp(14)])
+                Color(*button_color)
+                RoundedRectangle(pos=btn_rematch.pos, size=btn_rematch.size, radius=[dp(12)])
 
         btn_rematch.bind(pos=update_btn_rematch, size=update_btn_rematch)
         btn_rematch.bind(on_release=lambda _: self.on_rematch())
@@ -228,9 +226,9 @@ class TicTacToeApp(App):
     def build(self):
         self.title = "Крестики-Нолики Hotseat"
 
-        # Состояние игры
-        self.current_player = "X"   # 'X' ходит первым
-        self.board = [""] * 9       # 9 клеток
+        # Состояние игры.
+        self.current_player = "X"
+        self.board = [""] * 9
         self.game_over = False
         self.score_x = 0
         self.score_o = 0
@@ -238,17 +236,16 @@ class TicTacToeApp(App):
         self.round_number = 1
         self.overlay = None
 
-        # Выигрышные комбинации (строки, столбцы, диагонали)
         self.WIN_LINES = [
-            (0, 1, 2), (3, 4, 5), (6, 7, 8),  # горизонтали
-            (0, 3, 6), (1, 4, 7), (2, 5, 8),  # вертикали
-            (0, 4, 8), (2, 4, 6)              # диагонали
+            (0, 1, 2), (3, 4, 5), (6, 7, 8),
+            (0, 3, 6), (1, 4, 7), (2, 5, 8),
+            (0, 4, 8), (2, 4, 6)
         ]
 
-        # Корневой контейнер
+        # Корневой контейнер.
         self.root_layout = FloatLayout()
 
-        # Главная вертикальная колонка интерфейса
+        # Главная вертикальная колонка интерфейса.
         main_box = BoxLayout(
             orientation='vertical',
             padding=[dp(20), dp(24), dp(20), dp(20)],
@@ -256,22 +253,22 @@ class TicTacToeApp(App):
             size_hint=(1, 1)
         )
 
-        # 1. Шапка приложения (Логотип и номер раунда)
+        # 1. Шапка приложения.
         header_box = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(38))
         lbl_app_name = Label(
             text="КРЕСТИКИ-НОЛИКИ",
             font_size=sp(17),
             bold=True,
-            color=COLOR_TEXT_LIGHT,
+            color=COLOR_TEXT,
             halign='left',
             valign='middle'
         )
         lbl_app_name.bind(size=lbl_app_name.setter('text_size'))
-        
+
         self.lbl_round = Label(
             text=f"Раунд {self.round_number}",
             font_size=sp(13),
-            color=COLOR_TEXT_MUTED,
+            color=COLOR_MUTED,
             halign='right',
             valign='middle'
         )
@@ -281,7 +278,7 @@ class TicTacToeApp(App):
         header_box.add_widget(self.lbl_round)
         main_box.add_widget(header_box)
 
-        # 2. Карточка текущего счета (Игрок 1 vs Ничьи vs Игрок 2)
+        # 2. Карточка текущего счета.
         score_panel = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
@@ -292,37 +289,47 @@ class TicTacToeApp(App):
         with score_panel.canvas.before:
             Color(*COLOR_PANEL)
             RoundedRectangle(pos=score_panel.pos, size=score_panel.size, radius=[dp(18)])
-            Color(*COLOR_PANEL_BORDER)
-            Line(rounded_rectangle=(score_panel.pos[0], score_panel.pos[1], score_panel.size[0], score_panel.size[1], dp(18)), width=dp(1))
+            Color(*COLOR_BORDER)
+            Line(
+                rounded_rectangle=(
+                    score_panel.pos[0], score_panel.pos[1], score_panel.size[0], score_panel.size[1], dp(18)
+                ),
+                width=dp(1),
+            )
 
         def update_score_bg(*_):
             score_panel.canvas.before.clear()
             with score_panel.canvas.before:
                 Color(*COLOR_PANEL)
                 RoundedRectangle(pos=score_panel.pos, size=score_panel.size, radius=[dp(18)])
-                Color(*COLOR_PANEL_BORDER)
-                Line(rounded_rectangle=(score_panel.pos[0], score_panel.pos[1], score_panel.size[0], score_panel.size[1], dp(18)), width=dp(1))
+                Color(*COLOR_BORDER)
+                Line(
+                    rounded_rectangle=(
+                        score_panel.pos[0], score_panel.pos[1], score_panel.size[0], score_panel.size[1], dp(18)
+                    ),
+                    width=dp(1),
+                )
 
         score_panel.bind(pos=update_score_bg, size=update_score_bg)
 
-        # Секция Игрока 1 (X)
+        # Секция Игрока X.
         box_x = BoxLayout(orientation='vertical', spacing=dp(2))
         lbl_p1_title = Label(text="Игрок X", font_size=sp(12), color=COLOR_X, bold=True)
-        self.lbl_score_x = Label(text="0", font_size=sp(26), color=COLOR_TEXT_LIGHT, bold=True)
+        self.lbl_score_x = Label(text="0", font_size=sp(26), color=COLOR_TEXT, bold=True)
         box_x.add_widget(lbl_p1_title)
         box_x.add_widget(self.lbl_score_x)
 
-        # Секция Ничьих
+        # Секция ничьих.
         box_draw = BoxLayout(orientation='vertical', spacing=dp(2), size_hint_x=0.6)
-        lbl_draw_title = Label(text="Ничьи", font_size=sp(11), color=COLOR_TEXT_MUTED)
-        self.lbl_score_draw = Label(text="0", font_size=sp(22), color=COLOR_TEXT_MUTED, bold=True)
+        lbl_draw_title = Label(text="Ничьи", font_size=sp(11), color=COLOR_MUTED)
+        self.lbl_score_draw = Label(text="0", font_size=sp(22), color=COLOR_MUTED, bold=True)
         box_draw.add_widget(lbl_draw_title)
         box_draw.add_widget(self.lbl_score_draw)
 
-        # Секция Игрока 2 (O)
+        # Секция Игрока O.
         box_o = BoxLayout(orientation='vertical', spacing=dp(2))
         lbl_p2_title = Label(text="Игрок O", font_size=sp(12), color=COLOR_O, bold=True)
-        self.lbl_score_o = Label(text="0", font_size=sp(26), color=COLOR_TEXT_LIGHT, bold=True)
+        self.lbl_score_o = Label(text="0", font_size=sp(26), color=COLOR_TEXT, bold=True)
         box_o.add_widget(lbl_p2_title)
         box_o.add_widget(self.lbl_score_o)
 
@@ -331,7 +338,7 @@ class TicTacToeApp(App):
         score_panel.add_widget(box_o)
         main_box.add_widget(score_panel)
 
-        # 3. Индикатор текущего хода
+        # 3. Индикатор текущего хода.
         self.turn_panel = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
@@ -339,29 +346,29 @@ class TicTacToeApp(App):
             padding=[dp(16), dp(8), dp(16), dp(8)]
         )
         with self.turn_panel.canvas.before:
-            Color(0.08, 0.12, 0.20, 1.0)
+            Color(0.10, 0.115, 0.15, 0.72)
             RoundedRectangle(pos=self.turn_panel.pos, size=self.turn_panel.size, radius=[dp(14)])
 
         def update_turn_bg(*_):
             self.turn_panel.canvas.before.clear()
             with self.turn_panel.canvas.before:
-                Color(0.08, 0.12, 0.20, 1.0)
+                Color(0.10, 0.115, 0.15, 0.72)
                 RoundedRectangle(pos=self.turn_panel.pos, size=self.turn_panel.size, radius=[dp(14)])
 
         self.turn_panel.bind(pos=update_turn_bg, size=update_turn_bg)
 
         self.lbl_turn = Label(
-            text="Очередь: [color=00F0FF][b]Игрок X[/b][/color]",
+            text="Очередь: [color=5C9DF0][b]Игрок X[/b][/color]",
             markup=True,
             font_size=sp(15),
-            color=COLOR_TEXT_LIGHT
+            color=COLOR_TEXT
         )
         self.turn_panel.add_widget(self.lbl_turn)
         main_box.add_widget(self.turn_panel)
 
-        # 4. Игровое поле 3х3
+        # 4. Игровое поле 3x3.
         board_container = FloatLayout(size_hint=(1, 1))
-        
+
         self.grid = GridLayout(
             cols=3,
             rows=3,
@@ -371,7 +378,6 @@ class TicTacToeApp(App):
         )
 
         def resize_grid(*_):
-            # Адаптивное квадратное поле, центрированное на любом экране
             avail_w = board_container.width
             avail_h = board_container.height
             side = min(avail_w, avail_h, dp(340))
@@ -382,14 +388,14 @@ class TicTacToeApp(App):
 
         self.cells = []
         for i in range(9):
-            cell = NeonCell(index=i, on_cell_click=self.handle_cell_click)
+            cell = GameCell(index=i, on_cell_click=self.handle_cell_click)
             self.cells.append(cell)
             self.grid.add_widget(cell)
 
         board_container.add_widget(self.grid)
         main_box.add_widget(board_container)
 
-        # 5. Нижняя панель действий (Новая игра / Сброс счета)
+        # 5. Нижняя панель действий.
         bottom_box = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
@@ -402,21 +408,31 @@ class TicTacToeApp(App):
             font_size=sp(13),
             bold=True,
             background_color=(0, 0, 0, 0),
-            color=COLOR_TEXT_LIGHT
+            color=COLOR_TEXT
         )
         with btn_restart.canvas.before:
             Color(*COLOR_PANEL)
             RoundedRectangle(pos=btn_restart.pos, size=btn_restart.size, radius=[dp(12)])
-            Color(*COLOR_PANEL_BORDER)
-            Line(rounded_rectangle=(btn_restart.pos[0], btn_restart.pos[1], btn_restart.size[0], btn_restart.size[1], dp(12)), width=dp(1))
+            Color(*COLOR_BORDER)
+            Line(
+                rounded_rectangle=(
+                    btn_restart.pos[0], btn_restart.pos[1], btn_restart.size[0], btn_restart.size[1], dp(12)
+                ),
+                width=dp(1),
+            )
 
         def update_btn_restart(*_):
             btn_restart.canvas.before.clear()
             with btn_restart.canvas.before:
                 Color(*COLOR_PANEL)
                 RoundedRectangle(pos=btn_restart.pos, size=btn_restart.size, radius=[dp(12)])
-                Color(*COLOR_PANEL_BORDER)
-                Line(rounded_rectangle=(btn_restart.pos[0], btn_restart.pos[1], btn_restart.size[0], btn_restart.size[1], dp(12)), width=dp(1))
+                Color(*COLOR_BORDER)
+                Line(
+                    rounded_rectangle=(
+                        btn_restart.pos[0], btn_restart.pos[1], btn_restart.size[0], btn_restart.size[1], dp(12)
+                    ),
+                    width=dp(1),
+                )
 
         btn_restart.bind(pos=update_btn_restart, size=update_btn_restart)
         btn_restart.bind(on_release=lambda _: self.new_game_round())
@@ -426,21 +442,31 @@ class TicTacToeApp(App):
             font_size=sp(13),
             bold=True,
             background_color=(0, 0, 0, 0),
-            color=COLOR_TEXT_MUTED
+            color=COLOR_MUTED
         )
         with btn_reset_score.canvas.before:
-            Color(0.12, 0.08, 0.12, 1.0)
+            Color(*COLOR_PANEL)
             RoundedRectangle(pos=btn_reset_score.pos, size=btn_reset_score.size, radius=[dp(12)])
-            Color(0.35, 0.18, 0.25, 0.8)
-            Line(rounded_rectangle=(btn_reset_score.pos[0], btn_reset_score.pos[1], btn_reset_score.size[0], btn_reset_score.size[1], dp(12)), width=dp(1))
+            Color(*COLOR_BORDER)
+            Line(
+                rounded_rectangle=(
+                    btn_reset_score.pos[0], btn_reset_score.pos[1], btn_reset_score.size[0], btn_reset_score.size[1], dp(12)
+                ),
+                width=dp(1),
+            )
 
         def update_btn_reset(*_):
             btn_reset_score.canvas.before.clear()
             with btn_reset_score.canvas.before:
-                Color(0.12, 0.08, 0.12, 1.0)
+                Color(*COLOR_PANEL)
                 RoundedRectangle(pos=btn_reset_score.pos, size=btn_reset_score.size, radius=[dp(12)])
-                Color(0.35, 0.18, 0.25, 0.8)
-                Line(rounded_rectangle=(btn_reset_score.pos[0], btn_reset_score.pos[1], btn_reset_score.size[0], btn_reset_score.size[1], dp(12)), width=dp(1))
+                Color(*COLOR_BORDER)
+                Line(
+                    rounded_rectangle=(
+                        btn_reset_score.pos[0], btn_reset_score.pos[1], btn_reset_score.size[0], btn_reset_score.size[1], dp(12)
+                    ),
+                    width=dp(1),
+                )
 
         btn_reset_score.bind(pos=update_btn_reset, size=update_btn_reset)
         btn_reset_score.bind(on_release=lambda _: self.reset_all_scores())
@@ -457,14 +483,12 @@ class TicTacToeApp(App):
         if self.game_over:
             return
         if self.board[cell.index] != "":
-            return  # Клетка уже занята
+            return
 
-        # Ставим ход
         symbol = self.current_player
         self.board[cell.index] = symbol
         cell.set_mark(symbol)
 
-        # Проверка на победу
         winner_combo = self.check_winner(symbol)
         if winner_combo:
             self.game_over = True
@@ -482,26 +506,24 @@ class TicTacToeApp(App):
                 title = "ПОБЕДА!"
                 sub = "Игрок O одержал победу"
 
-            self.lbl_turn.text = f"[color=22C55E][b]Партия завершена![/b][/color]"
+            self.lbl_turn.text = "[color=ECEFF3][b]Партия завершена![/b][/color]"
             Clock.schedule_once(lambda dt: self.show_result_overlay(title, sub, symbol), 0.35)
             return
 
-        # Проверка на ничью (все клетки заполнены)
         if "" not in self.board:
             self.game_over = True
             self.score_draws += 1
             self.lbl_score_draw.text = str(self.score_draws)
-            self.lbl_turn.text = "[color=94A3B8][b]Ничья в раунде[/b][/color]"
+            self.lbl_turn.text = "[color=A0A6B0][b]Ничья в раунде[/b][/color]"
             Clock.schedule_once(lambda dt: self.show_result_overlay("НИЧЬЯ!", "Силы равны, победителя нет", "D"), 0.35)
             return
 
-        # Передача хода следующему игроку
         if self.current_player == "X":
             self.current_player = "O"
-            self.lbl_turn.text = "Очередь: [color=FF2E84][b]Игрок O[/b][/color]"
+            self.lbl_turn.text = "Очередь: [color=EB7070][b]Игрок O[/b][/color]"
         else:
             self.current_player = "X"
-            self.lbl_turn.text = "Очередь: [color=00F0FF][b]Игрок X[/b][/color]"
+            self.lbl_turn.text = "Очередь: [color=5C9DF0][b]Игрок X[/b][/color]"
 
     def check_winner(self, player):
         """Проверка всех возможных выигрышных линий."""
@@ -513,7 +535,7 @@ class TicTacToeApp(App):
         return None
 
     def show_result_overlay(self, title, subtitle, symbol):
-        """Показ оверлея победы/ничьей."""
+        """Показ окна победы или ничьей."""
         if self.overlay:
             self.root_layout.remove_widget(self.overlay)
 
@@ -527,7 +549,7 @@ class TicTacToeApp(App):
         self.root_layout.add_widget(self.overlay)
 
     def dismiss_overlay(self):
-        """Закрытие оверлея без сброса поля."""
+        """Закрытие окна результата."""
         if self.overlay:
             self.root_layout.remove_widget(self.overlay)
             self.overlay = None
@@ -540,12 +562,11 @@ class TicTacToeApp(App):
         self.round_number += 1
         self.lbl_round.text = f"Раунд {self.round_number}"
 
-        # Чередуем первого ходящего по раундам для честности игры
         self.current_player = "X" if (self.round_number % 2 != 0) else "O"
         if self.current_player == "X":
-            self.lbl_turn.text = "Очередь: [color=00F0FF][b]Игрок X[/b][/color]"
+            self.lbl_turn.text = "Очередь: [color=5C9DF0][b]Игрок X[/b][/color]"
         else:
-            self.lbl_turn.text = "Очередь: [color=FF2E84][b]Игрок O[/b][/color]"
+            self.lbl_turn.text = "Очередь: [color=EB7070][b]Игрок O[/b][/color]"
 
         for cell in self.cells:
             cell.reset()
