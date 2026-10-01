@@ -1,80 +1,85 @@
 [app]
 
-# (string) Title of your application
-title = Крестики-Нолики
+# (str) Title of your application
+title = Tic Tac Toe Xx0
 
-# (string) Package name
+# (str) Package name
 package.name = tictactoe
 
-# (string) Package domain (needed for android packaging)
-package.domain = org.game
+# (str) Package domain (needed for android/ios packaging)
+package.domain = org.hedmitry.xx0
 
-# (string) Source code where the main.py lives
+# (str) Source code where the main.py lives
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas,ttf
+source.include_exts = py,png,jpg,kv,atlas,json,wav,mp3
 
-# (string) Application versioning
+# (list) List of inclusions using pattern matching
+#source.include_patterns = assets/*,images/*.png
+
+# (str) Application versioning (method 1)
 version = 1.0.0
 
 # (list) Application requirements
-# comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.3.0
+# КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ:
+# НЕ пишите python3==3.11.13!
+# Указывайте просто python3, тогда p4a согласует python3 и hostpython3 автоматически.
+requirements = python3,kivy==2.3.0,pillow
 
-# -----------------------------------------------------------------
-# КРИТИЧЕСКИЕ НАСТРОЙКИ ДЛЯ КОРРЕКТНОГО РАСТЯГИВАНИЯ НА ANDROID:
-# -----------------------------------------------------------------
+# (str) Presplash of the application
+#presplash.filename = %(source.dir)s/data/presplash.png
 
-# (string) Supported orientation (one of landscape, sensorLandscape, portrait or all)
-# Для вертикальной игры обязательно задавать строго portrait!
+# (str) Icon of the application
+#icon.filename = %(source.dir)s/data/icon.png
+
+# (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
 
-# (bool) Indicate whether the screen should be kept on
-# 0 = normal, 1 = keep screen on
-keep_screen_on = 1
-
-# (int) Fullscreen mode
-# 0 = показывать стандартный статус-бар Android (рекомендуется для избежания багов viewport)
-# 1 = полноэкранный режим
+# (bool) Indicate if the application should be fullscreen
 fullscreen = 0
 
-# (list) Permissions
-android.permissions = INTERNET
+#
+# Android specific
+#
 
-# (int) Android API to target
-android.api = 33
-
-# (int) Minimum API required
-android.minapi = 21
-
-# (int) Android NDK API to use
-android.ndk_api = 21
-
-# (bool) If True, then skip trying to update the Android SDK
+# (bool) If True, then skip trying to update the Android sdk
+# This can be useful to avoid excess downloads or save time
 android.skip_update = False
 
 # (bool) If True, then automatically accept SDK license
+# agreements. This is intended for automation only.
 android.accept_sdk_license = True
 
-# (list) The Android archs to build for
+# (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
+# Для ускорения сборки и поддержки 99% современных телефонов:
 android.archs = arm64-v8a, armeabi-v7a
 
-# (list) Android application meta-data to set (key=value format)
-# ВАЖНО: max_aspect позволяет приложению занимать экран современных телефонов (19.5:9, 20:9)
-android.meta_data = android.max_aspect=2.4, android.resizeableActivity=true
+# (int) Target Android API, should be as high as possible.
+android.api = 34
 
-# (bool) Android allow backup
-android.allow_backup = True
+# (int) Minimum API your APK / AAB will support.
+android.minapi = 21
 
-# -----------------------------------------------------------------
+# (int) Android SDK version to use
+#android.sdk = 34
+
+# (str) Android NDK version to use
+android.ndk = 25b
+
+# (str) python-for-android branch to use (стабильный релиз с гарантированным Python 3.11.5 для Kivy 2.3.0)
+p4a.branch = release-2024.01.21
+
+# (list) Permissions
+android.permissions = VIBRATE
+
+# (bool) Copy library instead of making a libpymodules.so
+android.copy_libs = 1
+
 [buildozer]
 
 # (int) Log level (0 = error only, 1 = info, 2 = debug with command output)
 log_level = 2
-
-# (int) Display warning if buildozer is run as root (0 = False, 1 = True)
-warn_on_root = 1
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 0
